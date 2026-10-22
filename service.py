@@ -28,7 +28,7 @@ def environment_initialization():
     global heartbeat_port
 
     # Populate readable variables with parameters after performing basic verification
-    valid_args = True # Return false if this flag turns to be False
+    valid_args = True # Stores overall success state for the argument parser
     for arg in sys.argv[1:]:
         if "=" not in arg:
             print(f"Unrecognized runtime argument: {arg}")
