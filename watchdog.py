@@ -1,4 +1,3 @@
-import datetime
 import socket
 import sys
 
@@ -61,11 +60,6 @@ def environment_initialization():
                 valid_args = False
     return True if valid_args else False
 
-def log_crash(client, uptime):
-    now = datetime.datetime.now()
-    with open("crashlog.txt", 'a') as f:
-        f.write(f"[str(now.time()] Client {client} timed out after {uptime}s uptime.\n")
-
 if __name__ == "__main__":
     # Handle argument count verification
     if len(sys.argv[1:]) == 1:
@@ -80,21 +74,3 @@ if __name__ == "__main__":
         sys.exit(-2)
 
 
-    sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-    sock.bind((watchdog_ip, watchdog_port))
-    print(f"Watchdog started listening on {watchdog_ip}:{watchdog_port}")
-    sock.settimeout(5.5)  # 500 ms 'extra' time for latency
-
-    client = None
-    uptime = 0.0
-    while True:
-        try:
-            data, addr = sock.recvfrom(1024)
-            print(f"Heartbeat received from {addr}: {data}")
-            client = addr
-            uptime += 5.0
-        except socket.timeout:
-            print(f"Heartbeat not received. Logging crash...")
-            log_crash(client, uptime)
-            break
-    print("Watchdog ended. Ending client connection...")

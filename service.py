@@ -1,12 +1,11 @@
-from flask import Flask, Response, request
+from flask import Flask, request, Response
 
 app = Flask(__name__)
 
 import base64
+import bcrypt
 import socket
 import sys
-
-import bcrypt
 
 help = """--passhash:       Encrypt a passphrase
 
@@ -86,7 +85,7 @@ def runtime_server():
     # Header without "Basic " beginning
     if not request.headers["Authorization"].startswith("Basic "):
         return "Authorization header does not match format!", 401
-
+    
     credentials_bytes = request.headers["Authorization"].split(" ")[1]
     credentials_plaintext = base64.b64decode(credentials_bytes).decode("ascii")
 
@@ -96,7 +95,7 @@ def runtime_server():
 
     # Destructure username & password pair from plaintext
     username, password = credentials_plaintext.split(":")
-
+    
     if verify_credentials(username, password):
         print(f"Successfully authenticated user `{username}`")
         return f"Successfully authenticated. Welcome, <strong>{username}</strong>!", 200
