@@ -1,6 +1,15 @@
+from flask import Flask, request, Response
+
+app = Flask(__name__)
+
+import base64
+import bcrypt
+import socket
 import sys
 
-help = """--hash-file:      Location of the file that contains the keypairs for user credentials
+help = """--passhash:       Encrypt a passphrase
+
+--hash-file:      Location of the file that contains the keypairs for user credentials
 
 --host-ip:        Bind IP for the service
 --host-port:      Bind port for the service
@@ -63,14 +72,61 @@ def environment_initialization():
                 valid_args = False
     return True if valid_args else False
 
+def heartbeat_sender():
+    pass # TODO
+
+@app.route("/login", methods=["GET"])
 def runtime_server():
-    pass # TODO 
+    # Header does not exist
+    if not request.headers.get("Authorization"):
+        resp = Response("Please provide your credentials!", status=401)
+        resp.headers["WWW-Authenticate"] = "Basic realm=\"Login service\""
+        return resp
+    # Header without "Basic " beginning
+    if not request.headers["Authorization"].startswith("Basic "):
+        return "Authorization header does not match format!", 401
+    
+    credentials_bytes = request.headers["Authorization"].split(" ")[1]
+    credentials_plaintext = base64.b64decode(credentials_bytes).decode("ascii")
+
+    # Decoded base64 header does has incorrect number of colon (:) separators
+    if credentials_plaintext.count(":") != 1:
+        return "Incorrectly encoded Authorization header!", 401
+
+    # Destructure username & password pair from plaintext
+    username, password = credentials_plaintext.split(":")
+    
+    if verify_credentials(username, password):
+        print(f"Successfully authenticated user `{username}`")
+        return f"Successfully authenticated. Welcome, <strong>{username}</strong>!", 200
+    else:
+        print(f"Improper credentials for username `{username}`")
+        return "Incorrect credentials. Please try again!", 401
+
+def verify_credentials(username, password):
+    with open(hash_file, "r") as credentials:
+        # Read every line and try each credential pair until we get a match
+        while line := credentials.readline():
+            line_user, line_hash = line.split(",")
+            if line_user != username:
+                continue
+            if bcrypt.checkpw(password.encode("utf-8"), line_hash.rstrip().encode("utf-8")):
+                return True
+    return False # We exhausted all credentials, still no match!
+
+def generate_credentials(passphrase):
+    salt = bcrypt.gensalt()
+    return bcrypt.hashpw(passphrase.encode("utf-8"), salt)
 
 if __name__ == "__main__":
     # Handle argument count verification
-    if len(sys.argv[1:]) == 1 and sys.argv[1] == "--help":
-        print(help)
-        sys.exit(0)
+    if len(sys.argv[1:]) == 1:
+        if sys.argv[1] == "--help":
+            print(help)
+            sys.exit(0)
+        elif sys.argv[1].startswith("--passhash="):
+            print(f"Here is your hashed passphrase: {generate_credentials(sys.argv[1].split("=")[1])}")
+            sys.exit(0)
     if len(sys.argv[1:]) != 5:
         print(f"Not enough runtime arguments provided! The following are accepted:\n\n{help}")
         sys.exit(-1)
@@ -78,4 +134,4 @@ if __name__ == "__main__":
     if not environment_initialization():
         sys.exit(-2)
 
-    runtime_server()
+    app.run(host=host_ip, port=host_port)
