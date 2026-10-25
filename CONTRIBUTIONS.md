@@ -1,4 +1,4 @@
-Autumn - 
+Autumn - Wrote service.py and documentation on how to run it in README.md
 
 Reed - Wrote watchdog.py
 

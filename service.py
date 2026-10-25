@@ -1,4 +1,6 @@
+from datetime import datetime
 from flask import Flask, request, Response
+from threading import Thread
 
 app = Flask(__name__)
 
@@ -22,6 +24,7 @@ hash_file = None
 host_ip = None
 host_port = None
 
+heartbeat_gap = 5
 heartbeat_ip = None
 heartbeat_port = None
 
@@ -73,7 +76,18 @@ def environment_initialization():
     return True if valid_args else False
 
 def heartbeat_sender():
-    pass # TODO
+    # Bring global variable into function scope
+    global heartbeat_gap
+
+    heartbeat = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+    
+    previous_time = datetime.now()
+    while True:
+        current_time = datetime.now()
+        if (current_time - previous_time).total_seconds() >= heartbeat_gap:
+            heartbeat.sendto(bytes("Service is up!", "utf-8"), (heartbeat_ip, heartbeat_port))
+            print("Sent heartbeat!")
+            previous_time = current_time
 
 @app.route("/login", methods=["GET"])
 def runtime_server():
@@ -134,4 +148,10 @@ if __name__ == "__main__":
     if not environment_initialization():
         sys.exit(-2)
 
+    # Start thread for the heartbeat sender
+    heartbeat= Thread(target = heartbeat_sender)
+    heartbeat.daemon = True # This allows for succinct exiting when the main thread has exited
+    heartbeat.start()
+    
+    # Start flask server with target variables
     app.run(host=host_ip, port=host_port)
