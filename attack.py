@@ -1,18 +1,11 @@
 import socket
 import time
+import sys
 
 heartbeat_interval = 5
 heartbeat_message = "HEARTBEAT"
 
 watchdog_socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-
-
-def request_watchdog_info():
-    print("Enter watchdog IP: ")
-    watchdog_ip = input()
-    print("Enter watchdog port: ")
-    watchdog_port = input()
-    return watchdog_ip, watchdog_port
 
 
 def detect_crash():
@@ -21,7 +14,8 @@ def detect_crash():
 
 if __name__ == "__main__":
 
-    watchdog_ip, watchdog_port = request_watchdog_info()
+    watchdog_ip = sys.argv[0]
+    watchdog_port = sys.argv[1]
 
     try:
         while True:
