@@ -1,11 +1,14 @@
 from datetime import datetime
 from flask import Flask, request, Response
+from random import randint
 from threading import Thread
 
 app = Flask(__name__)
 
 import base64
 import bcrypt
+import os
+import signal
 import socket
 import sys
 
@@ -91,6 +94,8 @@ def heartbeat_sender():
 
 @app.route("/login", methods=["GET"])
 def runtime_server():
+    stochastic_crasher()
+    
     # Header does not exist
     if not request.headers.get("Authorization"):
         resp = Response("Please provide your credentials!", status=401)
@@ -116,6 +121,10 @@ def runtime_server():
     else:
         print(f"Improper credentials for username `{username}`")
         return "Incorrect credentials. Please try again!", 401
+
+def stochastic_crasher():
+    if randint(0, 10) == 5:
+        os.kill(os.getpid(), signal.SIGSEGV) # Simulate segmentation fault
 
 def verify_credentials(username, password):
     with open(hash_file, "r") as credentials:
