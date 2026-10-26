@@ -1,51 +1,43 @@
+
 import socket
 import time
 import sys
 
-heartbeat_interval = 5
-heartbeat_message = "HEARTBEAT"
-crash_threshold = 3.0
-watchdog_socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+heartbeat_message = bytes("Service is up!", "utf-8")
 
+def send(target_ip, target_port, interval, count):
+    sent = 0
 
-def detect_crash(r):
-    last_response_time = None
-    if len(r) > 0:
-        last_response_time = time.monotonic()
+    try:
+        with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as sock:
+            print(f"Heartbeat audit targeting {target_ip}:{target_port}")
+            print("Press Ctrl+C to stop the audit.")
 
-    if last_response_time is None:
-        return False
+            while count == 0 or sent < count:
+                sock.sendto(heartbeat_message, (target_ip, target_port))
+                sent += 1
 
-    return time.monotonic() - last_response_time >= crash_threshold
+                print(f"[ATTACK] Forged heartbeat #{sent} sent")
+                time.sleep(interval)
+
+    except KeyboardInterrupt:
+        print("Monitoring stopped")
+
+    except OSError as e:
+        print(f"Socket error: {e}")
+
 
 if __name__ == "__main__":
+    ## argv[0] will always be pyton
+    target_ip = sys.argv[1]
+    target_port = int(sys.argv[2])
 
-    watchdog_ip = sys.argv[0]
-    watchdog_port = sys.argv[1]
-    try:
-        while True:
-            watchdog_socket.sendto(heartbeat_message, (watchdog_ip, watchdog_port))
+    ## Optional Arguments with defaults
+    interval = float(sys.argv[3]) if len(sys.argv) > 3 else 1.0
+    count = int(sys.argv[4]) if len(sys.argv) > 4 else 0
 
-            try:
-                response, _ = watchdog_socket.recvfrom(1024)
-                ## -1 = Error
-                ## 0 = Connection is closed gracefully
-                ## Else size of message sent (active port)
 
-            ## Possible Errors from recv
-            except ConnectionRefusedError:
-                print("The client is down or unreachable")
-            except socket.timeout:
-                pass
-            except socket.error as e:
-                print(f"Socket error occurred: {e}")
+    if not 1 <= target_port <= 65535 or interval < 0.1 or count < 0:
+        sys.exit("invalid args")
 
-            # Checks response
-            if detect_crash(response):
-                print("Crash suspected.")
-                break
-
-            time.sleep(heartbeat_interval)
-    finally:
-            watchdog_socket.close()
-
+    send(target_ip, target_port, interval, count)

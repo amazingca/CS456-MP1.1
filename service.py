@@ -148,7 +148,7 @@ if __name__ == "__main__":
             print(help)
             sys.exit(0)
         elif sys.argv[1].startswith("--passhash="):
-            print(f"Here is your hashed passphrase: {generate_credentials(sys.argv[1].split("=")[1])}")
+            print(f'Here is your hashed passphrase: {generate_credentials(sys.argv[1].split("=")[1])}')
             sys.exit(0)
     if len(sys.argv[1:]) != 5:
         print(f"Not enough runtime arguments provided! The following are accepted:\n\n{help}")
