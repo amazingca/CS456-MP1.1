@@ -28,7 +28,7 @@ def send(target_ip, target_port, interval, count):
 
 
 if __name__ == "__main__":
-    ## argv[0] will always be pyton
+    ## argv[0] will always be attack.py
     target_ip = sys.argv[1]
     target_port = int(sys.argv[2])
 
@@ -36,8 +36,8 @@ if __name__ == "__main__":
     interval = float(sys.argv[3]) if len(sys.argv) > 3 else 1.0
     count = int(sys.argv[4]) if len(sys.argv) > 4 else 0
 
-
     if not 1 <= target_port <= 65535 or interval < 0.1 or count < 0:
         sys.exit("invalid args")
+
 
     send(target_ip, target_port, interval, count)
