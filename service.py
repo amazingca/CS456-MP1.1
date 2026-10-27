@@ -124,7 +124,7 @@ def runtime_server():
         return "Incorrect credentials. Please try again!", 401
 
 def stochastic_crasher():
-    if randint(0, 6) == 6:
+    if randint(0, 10) == 5:
         os.kill(os.getpid(), signal.SIGSEGV) # Simulate segmentation fault
 
 def verify_credentials(username, password):
