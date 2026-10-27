@@ -83,13 +83,12 @@ def heartbeat_sender():
     global heartbeat_gap
 
     heartbeat = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-
-    stochastic_crasher()
     
     previous_time = datetime.now()
     while True:
         current_time = datetime.now()
         if (current_time - previous_time).total_seconds() >= heartbeat_gap:
+            stochastic_crasher()
             heartbeat.sendto(bytes("Service is up!", "utf-8"), (heartbeat_ip, heartbeat_port))
             print("Sent heartbeat!")
             previous_time = current_time
