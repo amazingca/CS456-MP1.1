@@ -1,4 +1,4 @@
-Autumn - Wrote service.py and documentation on how to run it and login to the service in README.md
+Autumn - Wrote service.py and documentation on how to run it and login to the service in README.md, including Architectural Parameter Justifications in the report
 
 Reed - Wrote watchdog.py
 
