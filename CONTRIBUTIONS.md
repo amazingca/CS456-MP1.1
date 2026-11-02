@@ -11,7 +11,7 @@ Sami - Wrote start-up and spoofing parts of attack.py, wrote "Service Overview" 
 ### MP1.2
 Autumn - 
 
-Reed - 
+Reed - Separate service and sync, restructure auth requests to send and receive between sync and service, listen for crash, handle failover, broadcast auth requests to both services, track # of logins in service and print to console in sync after each request.
 
 Ryan - 
 
