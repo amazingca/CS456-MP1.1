@@ -165,7 +165,9 @@ def monitor_listener():
             sock.bind((host_ip, monitor_port))
             while True:
                 data, addr = sock.recvfrom(1024)
+                ip, port = addr
                 print(f"Received crash notification from {addr}")
+                sock.sendto(bytes("Restoring service!", "utf-8"), (ip, port))
                 failover()
 
 def failover():
