@@ -141,7 +141,7 @@ if __name__ == "__main__":
             sock.sendto(bytes("Service down!", "utf-8"), (sync_ip, sync_port))
             data, addr = sock.recvfrom(1024)
             message_from_sync = data.decode("utf-8").strip()
-            if (message_from_sync == "Service restored!"):
+            if (message_from_sync == "Restoring service!"):
               print("Service restored!")
               continue
             else:
