@@ -15,4 +15,4 @@ Reed - Wrote sync.py and several large changes for service.py
 
 Ryan - 
 
-Sami - 
+Sami - Wrote updated_watchdog.py, secondary_service,py, and MP1.2 Report PDF
