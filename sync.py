@@ -125,29 +125,24 @@ def runtime_server():
         return "Incorrect credentials. Please try again!", 401
 
 def verify_credentials(user, passwd):
-    send_creds = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-    send_creds.bind((primary_ip, primary_port))
-    print("Sending credentials to primary service for verification.")
-    credentials = {
-        "username": user,
-        "password": passwd
-    }
-    message = json.dumps(credentials).encode("utf-8")
-    send_creds.sendto(message, (primary_ip, primary_port))
+    with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as sock:
+        sock.settimeout(5.0)
 
-    listen_creds = socket.socket(socket.AF_INET, socket.SOCK_DRGRAM)
-    listen_creds.bind((host_ip, primary_port))
-    waiting = True
-    while(waiting):
-          response, addr = listen_creds.recvfrom(1024)
-          print("Authentication response returned from service.")
-          waiting = False
+        credentials = {
+            "username": user,
+            "password": passwd
+        }
 
-    status = int(response.decode())
-    if status == 1:
-        return True
-    return False
+        message = json.dumps(credentials).encode("utf-8")
 
+        sock.sendto(message, (primary_ip, primary_port))
+
+        try:
+            response, addr = sock.recvfrom(1024)
+            return response == b"1"
+        except socket.timeout:
+            print("ERROR: Primary service did not respond!")
+            return False
 
 def monitor_listener():
     # TODO: start on another thread before running webserver
@@ -158,7 +153,7 @@ if __name__ == "__main__":
         if sys.argv[1] == "--help":
             print(help)
             sys.exit(0)
-    if len(sys.argv[1:]) != 5:
+    if len(sys.argv[1:]) != 7:
         print(f"Not enough runtime arguments provided! The following are accepted:\n\n{help}")
         sys.exit(-1)
 

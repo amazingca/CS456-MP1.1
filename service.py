@@ -124,7 +124,7 @@ if __name__ == "__main__":
         elif sys.argv[1].startswith("--passhash="):
             print(f'Here is your hashed passphrase: {generate_credentials(sys.argv[1].split("=")[1])}')
             sys.exit(0)
-    if len(sys.argv[1:]) != 5:
+    if len(sys.argv[1:]) != 6:
         print(f"Not enough runtime arguments provided! The following are accepted:\n\n{help}")
         sys.exit(-1)
 
@@ -137,17 +137,11 @@ if __name__ == "__main__":
     heartbeat.start()
 
     # Listen and respond for auth requests
-    listen_sync = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-    listen_sync.bind((service_ip, service_port))
-    send_sync = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-    send_sync.bind((sync_ip, service_port))
-    while True:
-        data, addr = listen_sync.recvfrom(1024)
-        print(f"Received auth request from {addr}")
-
-        credentials = json.loads(data.decode("utf-8"))
-        username = credentials["username"]
-        password = credentials["password"]
-        response =  verify_credentials(username, password)
-
-        send_sync.sendto(response, addr)
+    with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as sock:
+        sock.bind((service_ip, service_port))
+        while True:
+            data, addr = sock.recvfrom(1024)
+            print(f"Received auth request from {addr}")
+            cred = json.loads(data.decode("utf-8"))
+            response =  verify_credentials(cred["username"], cred["password"])
+            sock.sendto(response, addr)
