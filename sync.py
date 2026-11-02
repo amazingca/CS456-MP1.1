@@ -140,21 +140,24 @@ def verify_credentials(user, passwd):
         sock.sendto(message, (secondary_ip, secondary_port))
 
 
-        failover_response = None
+        s_auth, s_logins = None, None
         expected_primary = (primary_ip, primary_port)
         expected_secondary = (secondary_ip, secondary_port)
         try:
             while True:
                 response, addr = sock.recvfrom(1024)
                 if addr == expected_primary:
-                    return response == b"1"
+                    p_auth, p_logins = response.decode("utf-8").split(",")
+                    print(f"New number of login attempts: {p_logins}")
+                    return p_auth == "1"
                 if addr == expected_secondary:
-                    failover_response = response
+                    s_auth, s_logins = response.decode("utf-8").split(",")
 
         except socket.timeout:
             print("Primary service timed out. Returning secondary response.")
-            if failover_response is not None:
-                return failover_response == b"1"
+            if s_auth is not None:
+                print(f"New number of login attempts: {s_logins}")
+                return s_auth == "1"
         raise RuntimeError('Auth request completely failed to receive service response.')
 
 def monitor_listener():
