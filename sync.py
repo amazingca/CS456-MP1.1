@@ -12,6 +12,7 @@ import os
 import signal
 import socket
 import sys
+import time
 
 help = """--host-ip: ip sync runs on
 --host-port: port sync runs on
@@ -126,7 +127,7 @@ def runtime_server():
 
 def verify_credentials(user, passwd):
     with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as sock:
-        sock.settimeout(5.0)
+        sock.settimeout(1.0)
 
         credentials = {
             "username": user,
@@ -136,16 +137,40 @@ def verify_credentials(user, passwd):
         message = json.dumps(credentials).encode("utf-8")
 
         sock.sendto(message, (primary_ip, primary_port))
+        sock.sendto(message, (secondary_ip, secondary_port))
 
+
+        failover_response = None
+        expected_primary = (primary_ip, primary_port)
+        expected_secondary = (secondary_ip, secondary_port)
         try:
-            response, addr = sock.recvfrom(1024)
-            return response == b"1"
+            while True:
+                response, addr = sock.recvfrom(1024)
+                if addr == expected_primary:
+                    return response == b"1"
+                if addr == expected_secondary:
+                    failover_response = response
+
         except socket.timeout:
-            print("ERROR: Primary service did not respond!")
-            return False
+            print("Primary service timed out. Returning secondary response.")
+            if failover_response is not None:
+                return failover_response == b"1"
+        raise RuntimeError('Auth request completely failed to receive service response.')
 
 def monitor_listener():
-    # TODO: start on another thread before running webserver
+    with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as sock:
+            sock.bind((host_ip, monitor_port))
+            while True:
+                data, addr = sock.recvfrom(1024)
+                print(f"Received crash notification from {addr}")
+                failover()
+
+def failover():
+    print("WARNING: Primary service crashed. Failing over to secondary.")
+    global primary_ip
+    global primary_port
+    primary_ip = secondary_ip
+    primary_port = secondary_port
 
 if __name__ == "__main__":
     # Handle argument count verification
@@ -159,6 +184,9 @@ if __name__ == "__main__":
 
     if not environment_initialization():
         sys.exit(-2)
+
+    failover_handler = Thread(target=monitor_listener, daemon=True)
+    failover_handler.start()
 
     # Start flask server with target variables
     app.run(host=host_ip, port=host_port)
