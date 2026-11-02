@@ -18,6 +18,9 @@ watchdog_port = None
 service_ip = None
 service_port = None
 
+sync_ip = None
+sync_port = None
+
 def port_within_range(port):
     return True if port > 1023 and port < 65536 else False
 
@@ -57,6 +60,17 @@ def environment_initialization():
                 except ValueError:
                     print("Service port provided was not an integer.")
                     valid_args = False
+            case ["--sync-ip", sync_ip_temp]:
+                sync_ip = sync_ip_temp
+            case ["--sync-port", sync_port_temp]:
+                try:
+                    if not port_within_range(int(sync_port_temp)):
+                        print("Sync port not within the range 1024 through 65535.")
+                        valid_args = False
+                    sync_port = int(sync_port_temp)
+                except ValueError:
+                    print("Sync port provided was not an integer.")
+                    valid_args = False
             case [unknown, _]:
                 print(f"Unrecognized runtime argument: {unknown}")
                 valid_args = False
@@ -73,7 +87,7 @@ if __name__ == "__main__":
         if sys.argv[1] == "--help":
             print(help)
             sys.exit(0)
-    if len(sys.argv[1:]) != 4:
+    if len(sys.argv[1:]) != 6:
         print(f"Not enough runtime arguments provided! The following are accepted:\n\n{help}")
         sys.exit(-1)
 
@@ -123,15 +137,15 @@ if __name__ == "__main__":
         if len(missing_services) > 0:
             print("Crash detected!")
             log_crash(client, uptime)
-            # print("Failover triggered!")
-            # sock.sendto(bytes("Service down!", "utf-8"), (sync_ip, sync_port))
-            # data, addr = sock.recvfrom(1024)
-            # message_from_sync = data.decode("utf-8").strip()
-            # if (message_from_sync == "Service restored!"):
-            #   print("Service restored!")
-            #   continue
-            # else:
-            #   print("Service unable to be restored!")
-            #   break
+            print("Failover triggered!")
+            sock.sendto(bytes("Service down!", "utf-8"), (sync_ip, sync_port))
+            data, addr = sock.recvfrom(1024)
+            message_from_sync = data.decode("utf-8").strip()
+            if (message_from_sync == "Service restored!"):
+              print("Service restored!")
+              continue
+            else:
+              print("Service unable to be restored!")
+              break
     
     print("Watchdog ended. Ending client connection...")
