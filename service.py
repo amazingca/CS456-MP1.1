@@ -1,31 +1,31 @@
-from datetime import datetime
-from flask import Flask, request, Response
-from random import randint
-from threading import Thread
-
-app = Flask(__name__)
-
-import base64
-import bcrypt
+import json
 import os
 import signal
 import socket
 import sys
+from datetime import datetime
+from random import randint
+from threading import Thread
+
+import bcrypt
 
 help = """--passhash:       Encrypt a passphrase
 
 --hash-file:      Location of the file that contains the keypairs for user credentials
 
---host-ip:        Bind IP for the service
---host-port:      Bind port for the service
+--service-ip:        Bind IP for the service
+--service-port:      Bind port for the service. Also used as send port for sync-ip
+
+--sync-ip: Send IP for sync
 
 --heartbeart-ip:  IP for the target heartbeat monitor
 --heartbeat-port: Port for the target heartbeat monitor"""
 
 hash_file = None
 
-host_ip = None
-host_port = None
+service_ip = None
+service_port = None
+sync_ip = None
 
 heartbeat_gap = 5
 heartbeat_ip = None
@@ -37,8 +37,9 @@ def port_within_range(port):
 def environment_initialization():
     # Bring global variables into function scope
     global hash_file
-    global host_ip
-    global host_port
+    global service_ip
+    global service_port
+    global sync_ip
     global heartbeat_ip
     global heartbeat_port
 
@@ -51,17 +52,19 @@ def environment_initialization():
         match (arg.split("=")):
             case ["--hash-file", hash_file_temp]:
                 hash_file = hash_file_temp
-            case ["--host-ip", host_ip_temp]:
-                host_ip = host_ip_temp
-            case ["--host-port", host_port_temp]:
+            case ["--service-ip", service_ip_temp]:
+                service_ip = service_ip_temp
+            case ["--service-port", service_port_temp]:
                 try:
-                    if not port_within_range(int(host_port_temp)):
-                        print("Host port not within the range 1024 through 65535.")
+                    if not port_within_range(int(service_port_temp)):
+                        print("Service port not within the range 1024 through 65535.")
                         valid_args = False
-                    host_port = int(host_port_temp)
+                    service_port = int(service_port_temp)
                 except ValueError:
-                    print("Host port provided was not an integer.")
+                    print("Service port provided was not an integer.")
                     valid_args = False
+            case ["--sync-ip", sync_ip_temp]:
+                sync_ip = sync_ip_temp
             case ["--heartbeat-ip", heartbeat_ip_temp]:
                 heartbeat_ip = heartbeat_ip_temp
             case ["--heartbeat-port", heartbeat_port_temp]:
@@ -83,7 +86,7 @@ def heartbeat_sender():
     global heartbeat_gap
 
     heartbeat = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-    
+
     previous_time = datetime.now()
     while True:
         current_time = datetime.now()
@@ -92,41 +95,8 @@ def heartbeat_sender():
             print("Sent heartbeat!")
             previous_time = current_time
 
-@app.route("/login", methods=["GET"])
-def runtime_server():
-    stochastic_crasher()
-    
-    # Header does not exist
-    if not request.headers.get("Authorization"):
-        resp = Response("Please provide your credentials!", status=401)
-        resp.headers["WWW-Authenticate"] = "Basic realm=\"Login service\""
-        return resp
-    # Header without "Basic " beginning
-    if not request.headers["Authorization"].startswith("Basic "):
-        return "Authorization header does not match format!", 401
-    
-    credentials_bytes = request.headers["Authorization"].split(" ")[1]
-    credentials_plaintext = base64.b64decode(credentials_bytes).decode("ascii")
-
-    # Decoded base64 header does has incorrect number of colon (:) separators
-    if credentials_plaintext.count(":") != 1:
-        return "Incorrectly encoded Authorization header!", 401
-
-    # Destructure username & password pair from plaintext
-    username, password = credentials_plaintext.split(":")
-    
-    if verify_credentials(username, password):
-        print(f"Successfully authenticated user `{username}`")
-        return f"Successfully authenticated. Welcome, <strong>{username}</strong>!", 200
-    else:
-        print(f"Improper credentials for username `{username}`")
-        return "Incorrect credentials. Please try again!", 401
-
-def stochastic_crasher():
-    if randint(0, 10) == 5:
-        os.kill(os.getpid(), signal.SIGSEGV) # Simulate segmentation fault
-
 def verify_credentials(username, password):
+    stochastic_crasher()
     with open(hash_file, "r") as credentials:
         # Read every line and try each credential pair until we get a match
         while line := credentials.readline():
@@ -134,8 +104,12 @@ def verify_credentials(username, password):
             if line_user != username:
                 continue
             if bcrypt.checkpw(password.encode("utf-8"), line_hash.rstrip().encode("utf-8")):
-                return True
-    return False # We exhausted all credentials, still no match!
+                return b"1"
+    return b"0" # We exhausted all credentials, still no match!
+
+def stochastic_crasher():
+    if randint(0, 10) == 5:
+        os.kill(os.getpid(), signal.SIGSEGV) # Simulate segmentation fault
 
 def generate_credentials(passphrase):
     salt = bcrypt.gensalt()
@@ -150,7 +124,7 @@ if __name__ == "__main__":
         elif sys.argv[1].startswith("--passhash="):
             print(f'Here is your hashed passphrase: {generate_credentials(sys.argv[1].split("=")[1])}')
             sys.exit(0)
-    if len(sys.argv[1:]) != 5:
+    if len(sys.argv[1:]) != 6:
         print(f"Not enough runtime arguments provided! The following are accepted:\n\n{help}")
         sys.exit(-1)
 
@@ -161,6 +135,13 @@ if __name__ == "__main__":
     heartbeat= Thread(target = heartbeat_sender)
     heartbeat.daemon = True # This allows for succinct exiting when the main thread has exited
     heartbeat.start()
-    
-    # Start flask server with target variables
-    app.run(host=host_ip, port=host_port)
+
+    # Listen and respond for auth requests
+    with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as sock:
+        sock.bind((service_ip, service_port))
+        while True:
+            data, addr = sock.recvfrom(1024)
+            print(f"Received auth request from {addr}")
+            cred = json.loads(data.decode("utf-8"))
+            response =  verify_credentials(cred["username"], cred["password"])
+            sock.sendto(response, addr)
