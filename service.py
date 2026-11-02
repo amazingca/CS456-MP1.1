@@ -31,6 +31,8 @@ heartbeat_gap = 5
 heartbeat_ip = None
 heartbeat_port = None
 
+login_attempts = 0
+
 def port_within_range(port):
     return True if port > 1023 and port < 65536 else False
 
@@ -96,7 +98,11 @@ def heartbeat_sender():
             previous_time = current_time
 
 def verify_credentials(username, password):
+    global login_attempts
+    login_attempts += 1
+
     stochastic_crasher()
+
     with open(hash_file, "r") as credentials:
         # Read every line and try each credential pair until we get a match
         while line := credentials.readline():
@@ -104,8 +110,8 @@ def verify_credentials(username, password):
             if line_user != username:
                 continue
             if bcrypt.checkpw(password.encode("utf-8"), line_hash.rstrip().encode("utf-8")):
-                return b"1"
-    return b"0" # We exhausted all credentials, still no match!
+                return f"1,{login_attempts}"
+    return f"0,{login_attempts}" # We exhausted all credentials, still no match!
 
 def stochastic_crasher():
     if randint(0, 10) == 5:
