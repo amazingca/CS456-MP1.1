@@ -13,6 +13,6 @@ Autumn -
 
 Reed - Wrote sync.py and several large changes for service.py
 
-Ryan - 
+Ryan - Wrote the attack summary and attack script, minor debugging across all files. 
 
 Sami - Wrote updated_watchdog.py, secondary_service,py, and MP1.2 Report PDF
