@@ -152,10 +152,11 @@ if __name__ == "__main__":
             data, addr = sock.recvfrom(1024)
             message_from_sync = data.decode("utf-8").strip()
             if (message_from_sync == "Restoring service!"):
-              print("Service restored!")
-              continue
+                print("Service restored!")
+                expected_services.remove("Service A is up!")
+                continue
             else:
-              print("Service unable to be restored!")
-              break
+                print("Service unable to be restored!")
+                break
     
     print("Watchdog ended. Ending client connection...")

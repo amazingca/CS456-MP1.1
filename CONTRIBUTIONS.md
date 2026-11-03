@@ -9,7 +9,7 @@ Ryan - Wrote Attack.py and "Audit Summary"
 Sami - Wrote start-up and spoofing parts of attack.py, wrote "Service Overview" and "Execution and Setup Instructions" for attack.py for report
 
 ### MP1.2
-Autumn - 
+Autumn - Recorded demo, updated synchronization in both services, improved failover mechanism, unified quickstart commands in the report so everything works
 
 Reed - Wrote sync.py and several large changes for service.py
 

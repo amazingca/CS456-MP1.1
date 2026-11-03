@@ -118,9 +118,10 @@ def runtime_server():
     # Destructure username & password pair from plaintext
     username, password = credentials_plaintext.split(":")
 
-    if verify_credentials(username, password):
-        print(f"Successfully authenticated user `{username}`")
-        return f"Successfully authenticated. Welcome, <strong>{username}</strong>!", 200
+    logged_in, logged_in_count = verify_credentials(username, password)
+    if logged_in:
+        print(f"Successfully authenticated user `{username}`, logged in {logged_in_count} times")
+        return f"Successfully authenticated. Welcome, <strong>{username}</strong>! You've logged in <strong>{logged_in_count}</strong> times.", 200
     else:
         print(f"Improper credentials for username `{username}`")
         return "Incorrect credentials. Please try again!", 401
@@ -137,10 +138,10 @@ def verify_credentials(user, passwd):
         message = json.dumps(credentials).encode("utf-8")
 
         sock.sendto(message, (primary_ip, primary_port))
-        sock.sendto(message, (secondary_ip, secondary_port))
+        if primary_ip != secondary_ip:
+            sock.sendto(message, (secondary_ip, secondary_port))
 
-        response, addr = sock.recvfrom(1024)
-
+        p_auth, p_logins = None, None
         s_auth, s_logins = None, None
         expected_primary = (primary_ip, primary_port)
         expected_secondary = (secondary_ip, secondary_port)
@@ -149,13 +150,13 @@ def verify_credentials(user, passwd):
             while True:
                 response, addr = sock.recvfrom(1024)
                 if addr == expected_primary:
-                    p_auth, p_logins = response.decode("utf-8").split(",")
-                    print(f"New number of login attempts: {p_logins}")
+                      p_auth, p_logins = response.decode("utf-8").split(",")
+                      print(f"New number of login attempts: {p_logins}")
 
-                    return p_auth == "1"
-                
+                      return (p_auth == "1", p_logins)
+        
                 if addr == expected_secondary:
-                    s_auth, s_logins = response.decode("utf-8").split(",")
+                      s_auth, s_logins = response.decode("utf-8").split(",")
 
                 print(f"Primary Logins:{p_logins}, Secondary Logins:{s_logins}")
 
@@ -165,7 +166,7 @@ def verify_credentials(user, passwd):
             if s_auth is not None:
                 print(f"New number of login attempts: {s_logins}")
 
-                return s_auth == "1"
+                return (s_auth == "1", s_logins)
             
         raise RuntimeError('Auth request completely failed to receive service response.')
 
