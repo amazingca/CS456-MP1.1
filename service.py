@@ -94,7 +94,7 @@ def heartbeat_sender():
         current_time = datetime.now()
         if (current_time - previous_time).total_seconds() >= heartbeat_gap:
             heartbeat.sendto(bytes("Service A is up!", "utf-8"), (heartbeat_ip, heartbeat_port))
-            print("Sent heartbeat!")
+            print(f"Sent heartbeat! IP: {heartbeat_ip}, Port: {heartbeat_port}")
             previous_time = current_time
 
 def verify_credentials(username, password):
@@ -150,4 +150,4 @@ if __name__ == "__main__":
             print(f"Received auth request from {addr}")
             cred = json.loads(data.decode("utf-8"))
             response =  verify_credentials(cred["username"], cred["password"])
-            sock.sendto(response, addr)
+            sock.sendto(response.encode("utf-8"), addr)

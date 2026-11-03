@@ -144,4 +144,4 @@ if __name__ == "__main__":
             print(f"Received auth request from {addr}")
             cred = json.loads(data.decode("utf-8"))
             response =  verify_credentials(cred["username"], cred["password"])
-            sock.sendto(response, addr)
+            sock.sendto(response.encode("utf-8"), addr)

@@ -139,39 +139,60 @@ def verify_credentials(user, passwd):
         sock.sendto(message, (primary_ip, primary_port))
         sock.sendto(message, (secondary_ip, secondary_port))
 
+        response, addr = sock.recvfrom(1024)
 
         s_auth, s_logins = None, None
         expected_primary = (primary_ip, primary_port)
         expected_secondary = (secondary_ip, secondary_port)
+
         try:
             while True:
                 response, addr = sock.recvfrom(1024)
                 if addr == expected_primary:
                     p_auth, p_logins = response.decode("utf-8").split(",")
                     print(f"New number of login attempts: {p_logins}")
+
                     return p_auth == "1"
+                
                 if addr == expected_secondary:
                     s_auth, s_logins = response.decode("utf-8").split(",")
 
+                print(f"Primary Logins:{p_logins}, Secondary Logins:{s_logins}")
+
         except socket.timeout:
             print("Primary service timed out. Returning secondary response.")
+
             if s_auth is not None:
                 print(f"New number of login attempts: {s_logins}")
+
                 return s_auth == "1"
+            
         raise RuntimeError('Auth request completely failed to receive service response.')
 
 def monitor_listener():
     with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as sock:
-            sock.bind((host_ip, monitor_port))
-            while True:
-                data, addr = sock.recvfrom(1024)
-                ip, port = addr
-                print(f"Received crash notification from {addr}")
-                sock.sendto(bytes("Restoring service!", "utf-8"), (ip, port))
-                failover()
+        sock.bind((host_ip, monitor_port))
+
+        while True:
+            data, addr = sock.recvfrom(1024)
+            message = data.decode("utf-8").strip()
+
+            if message != "Service down!":
+                print(f"Ignoring unexpected message: {message}")
+                continue
+
+            print(f"Received crash notification from {addr}")
+
+            sock.sendto(
+                "Restoring service!".encode("utf-8"),
+                addr
+            )
+
+            failover()
 
 def failover():
     print("WARNING: Primary service crashed. Failing over to secondary.")
+
     global primary_ip
     global primary_port
     primary_ip = secondary_ip
