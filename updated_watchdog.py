@@ -2,6 +2,7 @@ import datetime
 import socket
 import sys
 import time
+import argparse
 
 # Assuming the default situation is a broadcast heartbeat, there is one watchdog-ip
 # per user session, but they're all listening on the same heartbeat port.
@@ -25,56 +26,67 @@ def port_within_range(port):
     return True if port > 1023 and port < 65536 else False
 
 def environment_initialization():
-    # Bring global variables into function scope
-    global watchdog_ip
-    global watchdog_port
-    global service_ip
-    global service_port
+    parser = argparse.ArgumentParser(
+        description="Watchdog service for monitoring service heartbeats."
+    )
 
-    # Populate readable variables with parameters after performing basic verification
-    valid_args = True # Stores overall success state for the argument parser
-    for arg in sys.argv[1:]:
-        if "=" not in arg:
-            print(f"Unrecognized runtime argument: {arg}")
-            valid_args = False
-        match (arg.split("=")):
-            case ["--watchdog-ip", watchdog_ip_temp]:
-                watchdog_ip = watchdog_ip_temp
-            case ["--watchdog-port", watchdog_port_temp]:
-                try:
-                    if not port_within_range(int(watchdog_port_temp)):
-                        print("Watchdog port not within the range 1024 through 65535.")
-                        valid_args = False
-                    watchdog_port = int(watchdog_port_temp)
-                except ValueError:
-                    print("Watchdog port provided was not an integer.")
-                    valid_args = False
-            case ["--service-ip", service_ip_temp]:
-                service_ip = service_ip_temp
-            case ["--service-port", service_port_temp]:
-                try:
-                    if not port_within_range(int(service_port_temp)):
-                        print("Service port not within the range 1024 through 65535.")
-                        valid_args = False
-                    service_port = int(service_port_temp)
-                except ValueError:
-                    print("Service port provided was not an integer.")
-                    valid_args = False
-            case ["--sync-ip", sync_ip_temp]:
-                sync_ip = sync_ip_temp
-            case ["--sync-port", sync_port_temp]:
-                try:
-                    if not port_within_range(int(sync_port_temp)):
-                        print("Sync port not within the range 1024 through 65535.")
-                        valid_args = False
-                    sync_port = int(sync_port_temp)
-                except ValueError:
-                    print("Sync port provided was not an integer.")
-                    valid_args = False
-            case [unknown, _]:
-                print(f"Unrecognized runtime argument: {unknown}")
-                valid_args = False
-    return True if valid_args else False
+    parser.add_argument(
+        "--watchdog-ip",
+        required=True,
+        help="Listening IP for the watchdog."
+    )
+
+    parser.add_argument(
+        "--watchdog-port",
+        required=True,
+        type=int,
+        help="Listening port for the watchdog. Same as heartbeat."
+    )
+
+    parser.add_argument(
+        "--service-ip",
+        required=True,
+        help="IP address for the service."
+    )
+
+    parser.add_argument(
+        "--service-port",
+        required=True,
+        type=int,
+        help="Port for the service."
+    )
+
+    parser.add_argument(
+        "--sync-ip",
+        required=True,
+        help="IP address for the synchronization service."
+    )
+
+    parser.add_argument(
+        "--sync-port",
+        required=True,
+        type=int,
+        help="Port for the synchronization service."
+    )
+
+    args = parser.parse_args()
+
+    # Validate port ranges
+    ports = {
+        "Watchdog": args.watchdog_port,
+        "Service": args.service_port,
+        "Sync": args.sync_port
+    }
+
+    for name, port in ports.items():
+        if not port_within_range(port):
+            parser.error(
+                f"{name} port must be within the range 1024 through 65535."
+            )
+
+    return args
+
+
 
 def log_crash(client, uptime):
     now = datetime.datetime.now()
@@ -82,21 +94,20 @@ def log_crash(client, uptime):
         f.write(f"[str(now.time()] Client {client} timed out after {uptime}s uptime.\n")
 
 if __name__ == "__main__":
-    # Handle argument count verification
-    if len(sys.argv[1:]) == 1:
-        if sys.argv[1] == "--help":
-            print(help)
-            sys.exit(0)
-    if len(sys.argv[1:]) != 6:
-        print(f"Not enough runtime arguments provided! The following are accepted:\n\n{help}")
-        sys.exit(-1)
+    args = environment_initialization()
 
-    if not environment_initialization():
-        sys.exit(-2)
+    watchdog_ip = args.watchdog_ip
+    watchdog_port = args.watchdog_port
 
+    service_ip = args.service_ip
+    service_port = args.service_port
+
+    sync_ip = args.sync_ip
+    sync_port = args.sync_port
 
     sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
     sock.bind((watchdog_ip, watchdog_port))
+
     print(f"Watchdog started listening on {watchdog_ip}:{watchdog_port}")
     sock.settimeout(5.5)  # 500 ms 'extra' time for latency
 
@@ -132,13 +143,12 @@ if __name__ == "__main__":
                 time_elapsed = now - last_seen[service]
                 if time_elapsed > 5.5:
                     missing_services.append(service)
-                    expected_services.remove(service)
 
         if len(missing_services) > 0:
             print("Crash detected!")
             log_crash(client, uptime)
             print("Failover triggered!")
-            sock.sendto(bytes("Service down!", "utf-8"), (sync_ip, sync_port))
+            sock.sendto("Service down!".encode("utf-8"), (sync_ip, sync_port))
             data, addr = sock.recvfrom(1024)
             message_from_sync = data.decode("utf-8").strip()
             if (message_from_sync == "Restoring service!"):
