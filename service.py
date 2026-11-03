@@ -3,6 +3,7 @@ import os
 import signal
 import socket
 import sys
+import time
 from datetime import datetime
 from random import randint
 from threading import Thread
@@ -89,13 +90,10 @@ def heartbeat_sender():
 
     heartbeat = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
 
-    previous_time = datetime.now()
     while True:
-        current_time = datetime.now()
-        if (current_time - previous_time).total_seconds() >= heartbeat_gap:
-            heartbeat.sendto(bytes("Service A is up!", "utf-8"), (heartbeat_ip, heartbeat_port))
-            print(f"Sent heartbeat! IP: {heartbeat_ip}, Port: {heartbeat_port}")
-            previous_time = current_time
+        heartbeat.sendto(bytes("Service A is up!", "utf-8"), (heartbeat_ip, heartbeat_port))
+        print(f"Sent heartbeat! IP: {heartbeat_ip}, Port: {heartbeat_port}")
+        time.sleep(5)
 
 def verify_credentials(username, password):
     global login_attempts
